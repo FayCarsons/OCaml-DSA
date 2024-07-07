@@ -1,0 +1,7 @@
+(library
+ (name practice)
+ (modules topological_sort stack_machine binary_tree)
+ (inline_tests)
+ (preprocess
+  (pps ppx_inline_test))
+ (libraries core Ounit))
