@@ -1,0 +1,14 @@
+(library
+ (name practice)
+ (modules
+  util
+  graph
+  topological_sort
+  stack_machine
+  binary_tree
+  biased_coin
+  hashing)
+ (inline_tests)
+ (preprocess
+  (pps ppx_inline_test))
+ (libraries core Ounit))
