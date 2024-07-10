@@ -1,0 +1,1 @@
+let () = Practice.Mastermind.init ()

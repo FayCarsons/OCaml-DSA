@@ -7,8 +7,11 @@
   stack_machine
   binary_tree
   biased_coin
-  hashing)
+  hashing
+  heap
+  djikstra
+  mastermind)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))
- (libraries core Ounit))
+ (libraries core))
