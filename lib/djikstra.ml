@@ -31,6 +31,24 @@ let shortest_paths
   Hashtbl.to_seq min_cost |> List.of_seq
 ;;
 
+(*
+   let shortest_path : (float * int) array -> int -> int -> int list =
+   fun graph start target ->
+   let num_nodes = Array.length graph in
+   let min_cost : float array =
+   Array.init num_nodes (function
+   | n when n = start -> 0.
+   | _ -> Float.infinity)
+   in
+   let visited : bool array = Array.make num_nodes false in
+   let initial_heap =
+   Array.mapi (fun index distance -> distance, index) min_cost
+   |> Array.to_list
+   |> Heap.min_of_list
+   in
+   []
+   ;; *)
+
 let test_graph =
   Hashtbl.of_seq
   @@ List.to_seq

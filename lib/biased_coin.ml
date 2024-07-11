@@ -9,7 +9,6 @@ let flip_coin probability = if Random.float 1. > probability then Tails else Hea
    probability of getting T,H is (1 - p) * p, cancelling out the bias in both cases.
    If we instead encounter a case where both flips land on the same side, we discard it and try again
 *)
-
 let unbias probability =
   let rec go () =
     let two_flips = flip_coin probability, flip_coin probability in
