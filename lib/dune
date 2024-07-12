@@ -14,10 +14,12 @@
   sorting
   eulerian_circuit
   ninety_nine_problems
-  battleship
   roman_numerals
   longest_palindrome
-  double_linked)
+  double_linked
+  lru
+  memoization
+  trie)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

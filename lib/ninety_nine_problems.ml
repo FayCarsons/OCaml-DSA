@@ -64,11 +64,11 @@ type 'a node =
 
 let flatten nodes =
   let rec go acc = function
+    | [] -> acc
     | One x :: xs -> go (x :: acc) xs
     | Many nodes :: xs -> go (go acc nodes) xs
-    | [] -> List.rev acc
   in
-  go [] nodes
+  List.rev @@ go [] nodes
 ;;
 
 let%test "Flatten nodes" =
@@ -140,7 +140,9 @@ let node_encode list =
     | x :: xs ->
       let node = if count > 1 then More (count, current) else Single current in
       go (node :: acc) 1 x xs
-    | [] -> List.rev acc
+    | [] ->
+      let node = if count > 1 then More (count, current) else Single current in
+      List.rev @@ (node :: acc)
   in
   match list with
   | x :: xs -> go [] 1 x xs
