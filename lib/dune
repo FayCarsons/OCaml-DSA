@@ -19,7 +19,9 @@
   double_linked
   lru
   memoization
-  trie)
+  trie
+  n_queens
+  connect_four)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

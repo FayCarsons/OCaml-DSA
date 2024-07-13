@@ -1,1 +1,1 @@
-let () = Practice.Mastermind.init ()
+let () = Practice.Connect_four.game ()
