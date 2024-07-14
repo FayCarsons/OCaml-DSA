@@ -21,7 +21,10 @@
   memoization
   trie
   n_queens
-  connect_four)
+  connect_four
+  prims
+  points
+  conference)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

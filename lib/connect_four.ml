@@ -15,6 +15,7 @@ type game =
 let columns = 7
 and rows = 6
 
+let ( >>= ) = Result.bind
 let create_board () = Array.init rows (fun _ -> Array.init columns (Fun.const Empty))
 
 let create_game () =
@@ -51,7 +52,19 @@ let or_default map k ~default f =
   | None -> Map.add k (f default) map
 ;;
 
-let has_winner map = Map.exists (fun _ squares -> List.length squares = 4) map
+let has_four_consecutive list =
+  let rec go count last = function
+    | _ when count = 4 -> true
+    | x :: xs when x = succ last -> go (succ count) x xs
+    | x :: xs -> go 1 x xs
+    | [] -> false
+  in
+  match list with
+  | x :: xs -> go 1 x xs
+  | [] -> false
+;;
+
+let has_winner map = Map.exists (fun _ squares -> has_four_consecutive squares) map
 
 let has_won player =
   let rec populate (rows_map, cols_map) = function
@@ -92,18 +105,20 @@ let place_first_row board player col =
   go (pred rows)
 ;;
 
-let get_move player =
-  Printf.printf "Player %s enter your move: " player;
-  read_line ()
+(* Sometimes reading code *should* be hard *)
+let read_move player =
+  Printf.printf "Player %s enter your move: " player
+  |> read_line
   |> String.trim
   |> int_of_string_opt
+  |> Fun.flip Option.bind (function
+    | n when n >= 1 && n <= columns -> Some n
+    | _ -> None)
   |> Option.to_result
        ~none:
-         "A move must be one integer representing the column in which you wish to place \
-          a piece"
+         "A move must be one integer - the column (1 ..  =7) in which you wish to place \
+          your piece"
 ;;
-
-let ( >>= ) = Result.bind
 
 let game () =
   let rec update ({ board; player_one; player_two; turn } as state) =
@@ -116,7 +131,7 @@ let game () =
         let current_player = whose_turn turn in
         let handle_move player =
           let msg = if player = PlayerOne then "one" else "two" in
-          match get_move msg >>= place_first_row board current_player with
+          match read_move msg >>= place_first_row board current_player with
           | Ok move ->
             print_board board;
             if player = PlayerOne

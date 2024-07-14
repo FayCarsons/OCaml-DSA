@@ -1,3 +1,5 @@
+(* NOT SOLVED :( *)
+
 (* Are two queens threatening eachother va diagonal *)
 let is_threatening (x1, y1) (x2, y2) = x1 - y1 = x2 - y2 || x1 + y1 = x2 + y2
 

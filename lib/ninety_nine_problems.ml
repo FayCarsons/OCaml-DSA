@@ -153,3 +153,63 @@ let%test "Node encoding" =
   node_encode [ "a"; "a"; "a"; "a"; "b"; "c"; "c"; "a"; "a"; "d"; "e"; "e"; "e"; "e" ]
   = [ More (4, "a"); Single "b"; More (2, "c"); More (2, "a"); Single "d"; More (4, "e") ]
 ;;
+
+let node_decode list =
+  let rec repeat acc x = function
+    | 0 -> acc
+    | n -> repeat (x :: acc) x (pred n)
+  in
+  let rec go acc = function
+    | More (n, x) :: xs -> go (repeat acc x n) xs
+    | Single x :: xs -> go (x :: acc) xs
+    | [] -> List.rev acc
+  in
+  go [] list
+;;
+
+let dup n list =
+  let rec repeat acc x = function
+    | 0 -> acc
+    | n -> repeat (x :: acc) x (pred n)
+  in
+  let rec go acc = function
+    | x :: xs -> go (repeat acc x n) xs
+    | [] -> List.rev acc
+  in
+  go [] list
+;;
+
+let drop_every n list =
+  let rec go acc count = function
+    | _ :: xs when count = n -> go acc 1 xs
+    | x :: xs -> go (x :: acc) (succ count) xs
+    | [] -> List.rev acc
+  in
+  go [] 1 list
+;;
+
+let slice start end' list =
+  let rec go acc idx = function
+    | x :: xs when idx >= start && idx <= end' -> go (x :: acc) (succ idx) xs
+    | _ :: xs -> go acc (succ idx) xs
+    | _ when idx > end' -> List.rev acc
+    | [] -> List.rev acc
+  in
+  go [] 0 list
+;;
+
+let rotate n list =
+  let rec go acc count = function
+    | x :: xs when count < n -> go (x :: acc) (succ count) xs
+    | [] -> List.rev acc
+    | rest -> rest @ List.rev acc
+  in
+  go [] 0 list
+;;
+
+let permute list =
+  let len = List.length list in
+  List.map (fun x -> x, Random.int len) list
+  |> List.fast_sort (fun (_, a) (_, b) -> compare a b)
+  |> List.map fst
+;;
