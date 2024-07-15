@@ -80,6 +80,7 @@ let max_of_list : ('k * 'v) list -> ('k, 'v) t =
   fun elts -> List.fold_left (fun heap (k, v) -> insert heap k v) (create_max ()) elts
 ;;
 
+(* TODO: Remove horrible hacky indentation trick *)
 let pp { heap; _ } =
   let rec go indent = function
     | Node (left, key, value, right) ->

@@ -41,10 +41,6 @@ let reconstruct_itenerary tickets =
   dfs [] start
 ;;
 
-let res_of_string res =
-  "[ " ^ List.fold_left (fun acc node -> acc ^ node ^ "; ") "" res ^ "]\n"
-;;
-
 let%test "Reconstruct itenerary #1" =
   let tickets = [ 
     "MUC", "LHR"; 

@@ -113,22 +113,26 @@ module Best = struct
   ;;
 
   let%test "LRU fibonacci" =
-    let num_calls = ref 0 in
-    let rec fib_raw n =
-      num_calls := succ !num_calls;
-      if n < 2 then n else fib_raw (n - 1) + fib_raw (n - 2)
-    in
+    let rec fib_raw n = if n < 2 then n else fib_raw (n - 1) + fib_raw (n - 2) in
     (* memoized *)
-    let fib = memoize fib_raw 32 in
+    let num_calls = ref 0 in
+    let fib =
+      memoize
+        (fun n ->
+          num_calls := succ !num_calls;
+          fib_raw n)
+        32
+    in
     let first = fib 4 in
     let second = fib 8 in
     let third = fib 16 in
-    Printf.printf "%d calls made to internal fibonacci function" !num_calls;
+    assert (!num_calls = 3);
     fib 4 = first
     && first = 3
     && fib 8 = second
     && second = 21
     && third = fib 16
     && third = 987
+    && !num_calls = 3
   ;;
 end

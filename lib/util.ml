@@ -7,7 +7,13 @@ let ( >>| ) = Result.map
 type 'a elt_printer = 'a -> string
 
 let print_list elt_printer list =
-  "List [ " ^ List.fold_left (fun acc elt -> acc ^ elt_printer elt ^ ", ") "" list ^ "]"
+  "List [ " ^ List.fold_left (fun acc elt -> acc ^ elt_printer elt ^ ", ") "" list ^ "]\n"
+;;
+
+let print_array elt_printer array =
+  "List [ "
+  ^ Array.fold_left (fun acc elt -> acc ^ elt_printer elt ^ ", ") "" array
+  ^ "]\n"
 ;;
 
 let is_some_and predicate = function
@@ -28,13 +34,13 @@ let print_set
     (module Set.S with type t = a and type elt = e) -> e elt_printer -> a -> string
   =
   fun (module S) elt_printer set ->
-  "Set { " ^ S.fold (fun elt acc -> acc ^ elt_printer elt) set "" ^ " }"
+  "Set { " ^ S.fold (fun elt acc -> acc ^ elt_printer elt) set "" ^ " }\n"
 ;;
 
 let print_queue elt_printer q =
-  "Queue ( " ^ Queue.fold (fun s elt -> s ^ elt_printer elt) "" q ^ " )"
+  "Queue ( " ^ Queue.fold (fun s elt -> s ^ elt_printer elt) "" q ^ " )\n"
 ;;
 
 let print_stack elt_printer stack =
-  "Stack [ " ^ Stack.fold (fun s elt -> s ^ elt_printer elt) "" stack ^ " ]"
+  "Stack [ " ^ Stack.fold (fun s elt -> s ^ elt_printer elt) "" stack ^ " ]\n"
 ;;

@@ -58,3 +58,28 @@ let search trie str =
   in
   go 0 trie
 ;;
+
+let search_stream : t -> char Seq.t -> string option =
+  fun root stream ->
+  let open Seq in
+  let rec go current_node : char node -> string option = function
+    | Cons (x, xs) ->
+      (match current_node with
+       | Root children | Node (_, children) ->
+         (match
+            List.find_opt
+              (function
+                | Node (c, _) when c = x -> true
+                | _ -> false)
+              children
+          with
+          | Some node -> go node (xs ())
+          | None -> go current_node (xs ()))
+       | Leaf s -> if Seq.is_empty xs then Some s else None)
+    | Nil ->
+      (match current_node with
+       | Node (_, [ Leaf s ]) -> Some s
+       | _ -> None)
+  in
+  go root (stream ())
+;;

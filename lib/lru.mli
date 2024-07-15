@@ -9,3 +9,5 @@ type ('k, 'v) t =
   }
 
 val create : int -> ('k, 'v) t
+val get : ('k, 'v) t -> 'k -> 'v option
+val set : ('k, 'v) t -> 'k -> 'v -> unit

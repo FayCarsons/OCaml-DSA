@@ -1,131 +1,67 @@
-type key = char
+(** Finding a common, valid topological sort for two graphs *)
 
-let ( >> ) f g x = g @@ f x
+module Set = Set.Make (Int)
 
-module Map = Hashtbl.Make (Char)
-module Set = Set.Make (Char)
+(* A graph represented as an array of neighbor sets, an adjacency list *)
+type graph = Set.t array
 
-(* Map from node -> neighbors *)
-type graph = key list Map.t
-
-(* Map from node -> dependents *)
-type degree_map = int Map.t
-
-let print_sep () = print_string ", "
-
-let print_degrees m =
-  print_string "Degree-map {\n  ";
-  Map.iter (fun k v -> Printf.printf "%c -> %s,\n" k @@ string_of_int v) m;
-  print_string "}\n\n"
-;;
-
-let print_queue q =
-  print_string "Queue: [\n   ";
-  Queue.iter (print_char >> print_sep) q;
-  print_string "\n]\n"
-;;
-
-let update m k f = Map.replace m k @@ f (Map.find m k)
-
-let update_default m k ~default f =
-  let entry =
-    match Map.find_opt m k with
-    | Some v -> f v
-    | None -> f default
-  in
-  Map.replace m k entry
-;;
-
-let remove_dependent graph degrees node =
-  let neighbors = Map.find graph node in
-  List.iter (fun neighbor -> update degrees neighbor (fun n -> max 0 (pred n))) neighbors
-;;
-
-(* Get the degree (number of dependents) of each node *)
-let init_degrees : graph -> degree_map =
-  fun graph ->
-  let degrees = Map.create @@ Map.length graph in
-  Map.iter (fun k _ -> Map.add degrees k 0) graph;
-  Map.iter
-    (fun _ neighbors ->
-      List.iter (fun neighbor -> update degrees neighbor succ) neighbors)
+(* Map each node to a set of its dependents *)
+let degree_of graph =
+  let dependents = Array.make (Array.length graph) Set.empty in
+  Array.iteri
+    (fun node neighbors ->
+      Set.iter
+        (fun neighbor -> dependents.(neighbor) <- Set.add node dependents.(neighbor))
+        neighbors)
     graph;
-  degrees
+  dependents
 ;;
 
-(* Get all nodes with no dependents *)
-let get_dependent_free degrees =
-  Map.to_seq degrees
-  |> Seq.filter_map (fun (k, v) ->
-    if 0 = v
-    then (
-      (* remove node from the dependency graph in-place *)
-      Map.remove degrees k;
-      Some k)
-    else None)
+(* Merge two graphs into one by taking the union of their neighbors *)
+let merge_graphs = Array.map2 Set.union
+let has_sink : graph -> bool = Array.exists Set.is_empty
+
+let topological_sort : graph -> graph -> int list =
+  fun first second ->
+  if not @@ (has_sink first && has_sink second)
+  then []
+  else (
+    let adjacency_list = merge_graphs first second in
+    let degrees = degree_of adjacency_list in
+    let queue = Queue.create () in
+    Array.iteri
+      (fun node dependents -> if Set.is_empty dependents then Queue.add node queue)
+      degrees;
+    let rec go acc not_visited =
+      let popped_node = Queue.take_opt queue in
+      match popped_node with
+      | Some current_node ->
+        if Set.mem current_node not_visited
+        then (
+          let neighbors = adjacency_list.(current_node) in
+          Set.iter
+            (fun node -> degrees.(node) <- Set.remove current_node degrees.(node))
+            neighbors;
+          Array.iteri
+            (fun node _ ->
+              if Set.mem node not_visited && Set.is_empty degrees.(node)
+              then Queue.add node queue)
+            degrees;
+          go (current_node :: acc) (Set.remove current_node not_visited))
+        else go acc not_visited
+      | None -> List.rev acc
+    in
+    let not_visited =
+      let nodes = List.init (Array.length adjacency_list) Fun.id in
+      Set.of_list nodes
+    in
+    match go [] not_visited with
+    | ordering when List.length ordering = Array.length adjacency_list -> ordering
+    | _ -> [])
 ;;
 
-let topological_sort : graph -> key list option =
-  fun graph ->
-  (* Create a mapping from node -> dependents *)
-  let degrees = init_degrees graph in
-  (* Get all zero-dependent nodes and put them in a queue *)
-  let queue = get_dependent_free degrees |> Queue.of_seq in
-  Queue.iter (remove_dependent graph degrees) queue;
-  let rec go (acc : key list) =
-    if Queue.is_empty queue
-    then
-      (* Check if the dependency graph is empty,
-         if not we have not found an ordering and there is
-         potentially a cycle *)
-      if Map.length degrees = 0 then Some (List.rev acc) else None
-    else (
-      (* Get a new node *)
-      let node = Queue.pop queue in
-      (* Decrement the dependency count of its dependents *)
-      remove_dependent graph degrees node;
-      (* Get new zero-dependent nodes *)
-      let new_zeroed = get_dependent_free degrees in
-      (* Push them onto the queue *)
-      Queue.add_seq queue new_zeroed;
-      (* recurse with node cons'd onto accumulator *)
-      go (node :: acc))
-  in
-  go []
-;;
-
-let map_of_list : (char * 'a) list -> 'a Map.t = List.to_seq >> Map.of_seq
-
-let%test "Simple graph" =
-  let graph = map_of_list [ 'A', [ 'B'; 'C' ]; 'B', [ 'D' ]; 'C', [ 'D' ]; 'D', [] ] in
-  let res = topological_sort graph in
-  Option.is_some res
-;;
-
-let%test "Complex graph" =
-  let graph =
-    map_of_list
-      [ 'A', [ 'B' ]
-      ; 'B', [ 'C'; 'D' ]
-      ; 'C', [ 'E' ]
-      ; 'D', [ 'E'; 'F' ]
-      ; 'E', [ 'G' ]
-      ; 'F', [ 'G' ]
-      ; 'G', []
-      ]
-  in
-  let res = topological_sort graph in
-  Option.is_some res
-;;
-
-let%test "Single Node" =
-  let graph = map_of_list [ 'A', [] ] in
-  let res = topological_sort graph in
-  Option.is_some res
-;;
-
-let%test "Disconnected nodes" =
-  let graph = map_of_list [ 'A', []; 'B', []; 'C', [] ] in
-  let res = topological_sort graph in
-  Option.is_some res
+let%test "Two graphs" =
+  let g1 = [| [ 1 ]; [ 2; 3 ]; []; [ 4 ]; [] |] |> Array.map Set.of_list
+  and g2 = [| [ 1 ]; [ 3 ]; []; [ 2; 4 ]; [] |] |> Array.map Set.of_list in
+  topological_sort g1 g2 = [ 0; 1; 3; 2; 4 ]
 ;;
