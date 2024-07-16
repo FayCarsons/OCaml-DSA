@@ -24,7 +24,8 @@
   connect_four
   prims
   points
-  conference)
+  conference
+  dp)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

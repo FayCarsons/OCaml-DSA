@@ -114,3 +114,71 @@ let%test "Year -> Hour" =
   let res = query test_graph start target in
   is_some_and (( = ) 8766.) res
 ;;
+
+(* Generic DFS and BFS functions *)
+
+(* We'll assume that our node IDs are integers so we can represent a graph as an array of neighbor sets *)
+module Set = Set.Make (Int)
+
+type graph = Set.t array
+
+let dfs : graph -> int list =
+  fun graph ->
+  let rec go acc unvisited current_node =
+    if Set.mem current_node unvisited
+    then (
+      let unvisited_neighbors = Set.inter unvisited graph.(current_node) in
+      let updated_unvisited = Set.remove current_node unvisited in
+      Set.fold
+        (fun node acc -> go acc updated_unvisited node)
+        unvisited_neighbors
+        (current_node :: acc))
+    else acc
+  in
+  let unvisited = Seq.ints 0 |> Seq.take (Array.length graph) |> Set.of_seq in
+  List.rev @@ go [] unvisited 0
+;;
+
+let bfs : graph -> int list =
+  fun graph ->
+  let queue = Queue.of_seq @@ Seq.return 0 in
+  let rec go acc unvisited =
+    match Queue.take_opt queue with
+    | Some node ->
+      if Set.is_empty unvisited
+      then List.rev acc
+      else (
+        let neighbors = Set.inter graph.(node) unvisited in
+        Set.iter (Fun.flip Queue.add queue) neighbors;
+        go (node :: acc) (Set.remove node unvisited))
+    | None -> List.rev acc
+  in
+  let unvisited = Set.of_list @@ List.init (Array.length graph) Fun.id in
+  go [] unvisited
+;;
+
+(* Test graph:
+   0: [1, 2]
+   1: [0, 3, 4]
+   2: [0]
+   3: [1]
+   4: [1]
+*)
+let test_graph : graph =
+  [| Set.of_list [ 1; 2 ]
+   ; Set.of_list [ 0; 3; 4 ]
+   ; Set.of_list [ 0 ]
+   ; Set.of_list [ 1 ]
+   ; Set.of_list [ 1 ]
+  |]
+;;
+
+let%test "DFS" =
+  let res = dfs test_graph in
+  res = [ 0; 1; 3; 4; 2 ] || res = [ 0; 2; 3; 4; 1 ]
+;;
+
+let%test "BFS" =
+  let res = bfs test_graph in
+  res = [ 0; 1; 2; 3; 4 ] || res = [ 0; 2; 1; 3; 4 ]
+;;

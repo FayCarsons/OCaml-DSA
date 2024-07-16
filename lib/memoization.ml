@@ -58,39 +58,6 @@ end
 module Best = struct
   include Lru
 
-  let get : ('k, 'v) t -> 'k -> 'v option =
-    fun self key ->
-    (* Check if cache contains key *)
-    Hashtbl.find_opt self.cache key
-    (* If so, remove node pointed to in cache,
-       and prepend (<->) to front of list *)
-    |> Option.map (fun list_node ->
-      let open DList in
-      (* Remove the node from the list, leaving us with an isolated node *)
-      let temp_node = remove list_node in
-      (* prepend node to front *)
-      let _ = temp_node <-> self.list in
-      (* Advance the least_used pointer *)
-      self.least_used <- next self.least_used;
-      let _, value = get_exn temp_node in
-      value)
-  ;;
-
-  let set self key value =
-    let open DList in
-    if self.size >= self.threshold
-    then (
-      let temp_key, _ = get_exn self.least_used in
-      self.least_used <- prev self.least_used;
-      Hashtbl.remove self.cache temp_key;
-      self.size <- pred self.size);
-    let new_node = node (key, value) in
-    self.list <- new_node <-> self.list;
-    Hashtbl.add self.cache key new_node;
-    self.size <- succ self.size;
-    if self.least_used = DList.empty then self.least_used <- new_node
-  ;;
-
   let rec fib lru n =
     match get lru n with
     | Some value -> value
