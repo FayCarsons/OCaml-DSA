@@ -1,25 +1,36 @@
+[@@@ocaml.warning "-32-34"]
+
 type square =
   | PlayerOne
   | PlayerTwo
   | Empty
 
+let string_of_player = function
+  | PlayerOne -> "Player one"
+  | PlayerTwo -> "Player two"
+  | Empty -> ""
+;;
+
 type player = (int * int) list
 
 type game =
   { board : square array array
-  ; player_one : player
-  ; player_two : player
-  ; turn : int
+  ; mutable player : square
+  ; mutable turn : int
   }
 
 let columns = 7
 and rows = 6
 
 let ( >>= ) = Result.bind
-let create_board () = Array.init rows (fun _ -> Array.init columns (Fun.const Empty))
+let create_board () = Array.init rows (fun _ -> Array.make columns Empty)
+let create_game () = { board = create_board (); player = PlayerOne; turn = 0 }
 
-let create_game () =
-  { board = create_board (); player_one = []; player_two = []; turn = 0 }
+(* TODO: use a polymorphic variant here or smth *)
+let flip_player = function
+  | PlayerOne -> PlayerTwo
+  | PlayerTwo -> PlayerOne
+  | _ -> failwith "Invalid argument passed to 'flip_player'"
 ;;
 
 let print_board board =
@@ -44,14 +55,6 @@ let print_board board =
   print_side ()
 ;;
 
-module Map = Map.Make (Int)
-
-let or_default map k ~default f =
-  match Map.find_opt k map with
-  | Some value -> Map.add k (f value) map
-  | None -> Map.add k (f default) map
-;;
-
 let has_four_consecutive list =
   let rec go count last = function
     | _ when count = 4 -> true
@@ -64,29 +67,8 @@ let has_four_consecutive list =
   | [] -> false
 ;;
 
-let has_winner map = Map.exists (fun _ squares -> has_four_consecutive squares) map
-
-let has_won player =
-  let rec populate (rows_map, cols_map) = function
-    | (row, col) :: xs ->
-      let updated_rows = or_default rows_map row ~default:[] (List.cons col) in
-      let updated_cols = or_default cols_map col ~default:[] (List.cons row) in
-      populate (updated_rows, updated_cols) xs
-    | [] -> rows_map, cols_map
-  in
-  let rows, cols = populate (Map.empty, Map.empty) player in
-  has_winner rows || has_winner cols
-;;
-
-let check_won player_one player_two =
-  if has_won player_one
-  then Some "Player one has won!"
-  else if has_won player_two
-  then Some "Player two has won!"
-  else None
-;;
-
 let whose_turn turn = if turn mod 2 = 0 then PlayerOne else PlayerTwo
+let valid_index x y = x >= 0 && x < rows && y >= 0 && y < columns
 
 (* Zero is in top left *)
 let place_first_row board player col =
@@ -105,43 +87,158 @@ let place_first_row board player col =
   go (pred rows)
 ;;
 
-(* Sometimes reading code *should* be hard *)
 let read_move player =
-  Printf.printf "Player %s enter your move: " player
-  |> read_line
-  |> String.trim
+  Printf.printf "%s enter your move: " player;
+  (* TODO : refactor entire fileto use core *)
+  let open Core in
+  In_channel.(input_line_exn stdin)
+  |> String.strip
   |> int_of_string_opt
-  |> Fun.flip Option.bind (function
+  |> Option.bind ~f:(function
     | n when n >= 1 && n <= columns -> Some n
     | _ -> None)
-  |> Option.to_result
-       ~none:
+  |> Result.of_option
+       ~error:
          "A move must be one integer - the column (1 ..  =7) in which you wish to place \
           your piece"
 ;;
 
+let get_opt array (row, col) =
+  if row >= 0 && row < rows && col >= 0 && col < columns
+  then Some array.(row).(col)
+  else None
+;;
+
+let directions =
+  [ (* Left *)
+    -1, 0
+  ; (* Left-up *)
+    -1, 1
+  ; (* Up *)
+    0, 1
+  ; (* Up-right *)
+    1, 1
+  ; (* Right *)
+    1, 0
+  ; (* Right down *)
+    1, -1
+  ; (* Down *)
+    0, -1
+  ; (* Down-left *)
+    -1, -1
+  ]
+;;
+
+let run board pos direction =
+  let dx, dy = direction in
+  let rec go acc (x, y) = function
+    | 0 -> acc
+    | n ->
+      let x, y = x + dx, y + dy in
+      (match get_opt board (x, y) with
+       | Some piece -> go (piece :: acc) (x, y) (pred n)
+       | None -> acc)
+  in
+  go [] pos 3
+;;
+
+let count needle list =
+  let rec count n = function
+    | x :: xs when x = needle -> count (succ n) xs
+    | _ :: pieces -> count n pieces
+    | [] -> n
+  in
+  count 0 list
+;;
+
+let has_won board player move =
+  let row, col = move in
+  let open Util in
+  let neighbors = List.map (run board (row, col) >> count player) directions in
+  List.exists (( = ) 3) neighbors
+;;
+
+type role =
+  | Min
+  | Max
+
+type tree =
+  | Node of tree list
+  | Leaf
+
+(*
+   let minimax board : (int * int, int) Either.t =
+   let t = Leaf in
+   let rec go role depth (alpha, beta) = function
+   | Node _ when depth = 0 -> (* score_position *) None
+   | Node children ->
+   if role = Max
+   then (
+   let rec reduce (alpha, value) = function
+   | child :: children ->
+   let value = max value (go Min (pred depth) (alpha, beta) child)
+   and alpha = max alpha value in
+   if alpha >= beta then value else reduce (alpha, value) children
+   | [] -> value
+   in
+   reduce (alpha, Float.neg_infinity) children)
+   else Util.unimplemented ()
+   | Leaf -> Util.unimplemented () (* Return heuristic value of the node *)
+   in
+   ;;
+*)
+
+let computer_player_move _board = Util.unimplemented ()
+
+let computer_game () =
+  let rec loop ({ board; turn; _ } as state) =
+    if turn = rows * columns
+    then print_endline "It's a tie!"
+    else (
+      let is_ai_turn = turn mod 2 = 1 in
+      if is_ai_turn
+      then Util.unimplemented ()
+      else (
+        match read_move "" >>= place_first_row board PlayerOne with
+        | Ok _move ->
+          print_board board;
+          loop { state with turn = succ turn }
+        | Error e ->
+          print_endline e;
+          loop state))
+  in
+  loop @@ create_game ()
+;;
+
 let game () =
-  let rec update ({ board; player_one; player_two; turn } as state) =
+  let rec loop ({ board; player; turn } as state) =
     if turn = rows * columns
     then print_string "It's a tie!"
     else (
-      match check_won player_one player_two with
-      | Some message -> print_string message
-      | None ->
-        let current_player = whose_turn turn in
-        let handle_move player =
-          let msg = if player = PlayerOne then "one" else "two" in
-          match read_move msg >>= place_first_row board current_player with
-          | Ok move ->
-            print_board board;
-            if player = PlayerOne
-            then update { state with player_one = move :: player_one; turn = succ turn }
-            else update { state with player_two = move :: player_two; turn = succ turn }
-          | Error e ->
-            print_endline e;
-            update state
-        in
-        handle_move current_player)
+      state.player <- flip_player player;
+      let handle_move () =
+        let player_str = string_of_player state.player in
+        match read_move player_str >>= place_first_row board state.player with
+        | Ok move ->
+          print_board board;
+          if has_won board state.player move
+          then print_endline @@ string_of_player state.player ^ " has won!"
+          else state.turn <- succ turn;
+          loop state
+        | Error e ->
+          print_endline e;
+          loop state
+      in
+      handle_move ())
   in
-  update @@ create_game ()
+  loop @@ create_game ()
+;;
+
+let run () =
+  match Sys.argv with
+  | [| _; "--computer" |] -> computer_game ()
+  | args when Array.mem "--help" args ->
+    print_string
+      "USAGE: add flag `--computer` to play 'AI' opponent, otherwise its two player :3"
+  | _ -> game ()
 ;;

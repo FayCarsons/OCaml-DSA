@@ -213,3 +213,53 @@ let permute list =
   |> List.fast_sort (fun (_, a) (_, b) -> compare a b)
   |> List.map fst
 ;;
+
+(* Taken from Neetcode's 'two-pointers' section
+   O(n^2) solution *)
+let largest_container heights =
+  let len = Array.length heights in
+  let area (left_x, left_y) (right_x, right_y) =
+    let width = right_x - left_x
+    and height = min left_y right_y in
+    width * height
+  in
+  let rec find_largest current_best left right =
+    if left = len
+    then current_best
+    else if right = len
+    then find_largest current_best (succ left) 0
+    else (
+      let current_area = area (left, heights.(left)) (right, heights.(right)) in
+      find_largest (max current_best current_area) left (succ right))
+  in
+  find_largest 0 0 0
+;;
+
+let largest_container_linear heights =
+  let len = Array.length heights in
+  let area x1 y1 x2 y2 =
+    let width = x2 - x1
+    and height = min y1 y2 in
+    width * height
+  in
+  let rec go best left right =
+    if left < right
+    then (
+      let current_area = area left heights.(left) right heights.(right) in
+      if heights.(left) < heights.(right)
+      then go (max best current_area) (succ left) right
+      else go (max best current_area) left (pred right))
+    else best
+  in
+  go 0 0 (pred len)
+;;
+
+let%test "Largest container - Case one" =
+  let heights = [| 1; 7; 2; 5; 4; 7; 3; 6 |] in
+  largest_container heights = 36
+;;
+
+let%test "Largest contaner - case two" =
+  let heights = [| 2; 2; 2 |] in
+  largest_container heights = 4
+;;

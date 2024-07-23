@@ -25,7 +25,11 @@
   prims
   points
   conference
-  dp)
+  dp
+  tree_rewrite
+  gcd
+  bfs
+  min_char_window)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

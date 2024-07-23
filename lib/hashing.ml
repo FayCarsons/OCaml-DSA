@@ -1,14 +1,4 @@
-let hash_string string =
-  let len = String.length string in
-  let rec go state idx =
-    if idx = len
-    then state
-    else (
-      let state = state lxor Char.code string.[idx] in
-      go state (succ idx))
-  in
-  go 0 0
-;;
+let hash_string = String.fold_left (fun hash c -> hash lxor Char.code c) 0
 
 module Hashmap = struct
   type 'a node =
@@ -38,6 +28,13 @@ module Hashmap = struct
       List.iter (fun { key; value } -> insert map key value) nodes)
   ;;
 
+  let get self k =
+    let index = hash_string k mod self.capacity in
+    let bucket = self.buckets.(index) in
+    let entry = List.find (fun { key; _ } -> key = k) bucket in
+    entry.value
+  ;;
+
   let remove map key =
     let index = hash_string key mod map.capacity in
     match map.buckets.(index) with
@@ -55,22 +52,54 @@ module Hashmap = struct
       map.buckets.(index) <- new_bucket;
       entry
   ;;
+end
 
-  (* WRONG not O(1) !! *)
+(* Create a data structure with O(1) lookups, removal, and rand-elt *)
+module Solution = struct
+  (*
+     We assume the data structure will store uints to avoid the headache of module functors or boxing our array contents
+     a -1 elt represents an empty index;
 
-  module Set = Set.Make (Int)
+     alternatively...simply omit the 'buckets' feature of the hashmap, which could cause problems w collisions
+     but would give us O(1) random elt lookup
+  *)
+  type t =
+    { map : int Hashmap.t
+    ; mutable array : int Array.t
+    ; mutable capacity : int
+    ; mutable size : int
+    }
 
-  let rand_entry map =
-    let rec get_idx visited =
-      let maybe_idx = Random.int map.capacity in
-      if Set.mem maybe_idx visited then get_idx visited else maybe_idx
-    in
-    let rec go visited =
-      let idx = get_idx visited in
-      match map.buckets.(idx) with
-      | { value; _ } :: _ -> Some value
-      | [] -> go @@ Set.add idx visited
-    in
-    go Set.empty
+  let create capacity =
+    { map = Hashmap.create capacity
+    ; array = Array.make capacity (-1)
+    ; size = 0
+    ; capacity
+    }
+  ;;
+
+  let insert self k v =
+    if self.size > self.capacity / 2
+    then (
+      (* Realloc *)
+      let new_capacity = self.capacity * 2 in
+      let new_arr = Array.make new_capacity (-1) in
+      Array.blit self.array 0 new_arr 0 (pred self.size);
+      self.array <- new_arr);
+    self.array.(self.size) <- v;
+    Hashmap.insert self.map k self.size;
+    self.size <- succ self.size
+  ;;
+
+  let remove self k =
+    let index = Hashmap.get self.map k in
+    self.array.(index) <- -1;
+    Hashmap.remove self.map k |> ignore;
+    self.size <- pred self.size
+  ;;
+
+  let rand_elt self =
+    let idx = Random.int self.size in
+    self.array.(idx)
   ;;
 end

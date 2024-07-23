@@ -46,3 +46,5 @@ let rec quicksort : 'a list -> 'a list = function
 ;;
 
 let%test "Quick Sort" = quicksort test_list = test_list_sorted
+let ( >>= ) = Result.bind
+let ( >>| ) = Result.map
