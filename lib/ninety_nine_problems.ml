@@ -263,3 +263,13 @@ let%test "Largest contaner - case two" =
   let heights = [| 2; 2; 2 |] in
   largest_container heights = 4
 ;;
+
+let cartesian_product list =
+  let rec loop acc = function
+    | x :: xs ->
+      let paired = List.map (fun y -> x, y) list in
+      loop (paired @ acc) xs
+    | [] -> acc
+  in
+  loop [] list
+;;

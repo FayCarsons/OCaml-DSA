@@ -38,7 +38,7 @@ let reconstruct_itenerary tickets =
       current_node :: go itenerary neighbors
     )
   in
-  dfs [] start
+  List.rev @@ dfs [] start
 ;;
 
 let%test "Reconstruct itenerary #1" =

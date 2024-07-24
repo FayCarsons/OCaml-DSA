@@ -1,35 +1,32 @@
-module Set = Set.Make (Int)
+open! Core
+module Set = Stdlib.Set.Make (Int)
 
 module Point = Points.Point (struct
     include Float
 
+    let mul = ( *. )
+    let div = ( /. )
     let to_float = Fun.id
     let of_float = Fun.id
   end)
 
-let or_default map key ~default f =
-  match Hashtbl.find_opt map key with
-  | Some value -> Hashtbl.replace map key (f value)
-  | None -> Hashtbl.add map key (f default)
-;;
-
-let connect_points start_id graph point_map heap seen : (int, int list) Hashtbl.t option =
-  let rec go heap seen last_id =
+let connect_points start_id graph point_map (heap : (float, int) Heap.t) seen =
+  let rec go (heap : (float, int) Heap.t) seen last_id =
     match Heap.pop heap with
     | updated_heap, Some (_, current_id) ->
       if Set.mem current_id seen
       then go updated_heap seen last_id
       else (
-        or_default graph last_id ~default:[] (List.cons current_id);
-        let current_pos = Hashtbl.find point_map current_id in
+        graph.(last_id) <- current_id :: graph.(last_id);
+        let current_pos = Hashtbl.find_exn point_map current_id in
         let new_heap : (float, int) Heap.t =
           Hashtbl.fold
-            (fun id pt heap ->
-              if Set.mem id seen
+            ~f:(fun ~key ~data heap ->
+              if Set.mem key seen
               then heap
-              else Heap.insert heap (Point.distance current_pos pt) id)
+              else Heap.insert heap (Point.distance current_pos data) key)
             point_map
-            updated_heap
+            ~init:updated_heap
         in
         let new_seen = Set.add current_id seen in
         go new_heap new_seen current_id)
@@ -39,15 +36,18 @@ let connect_points start_id graph point_map heap seen : (int, int list) Hashtbl.
   go heap seen start_id
 ;;
 
-let minimum_spanning_tree : (int * Point.t) list -> (int, int list) Hashtbl.t option =
+let minimum_spanning_tree : (int * Point.t) list -> int list array option =
   fun points ->
-  let graph = Hashtbl.create @@ List.length points in
-  let point_map = Hashtbl.of_seq @@ List.to_seq points in
+  let graph = Array.create ~len:(List.length points) [] in
+  let point_map =
+    match Hashtbl.of_alist (module Int) points with
+    | `Ok map -> map
+    | _ -> assert false
+  in
   match points with
   | (id, pos) :: rest ->
-    Hashtbl.add graph id [];
     let with_distance =
-      List.map (fun (curr_id, curr_pos) -> Point.distance pos curr_pos, curr_id) rest
+      List.map ~f:(fun (curr_id, curr_pos) -> Point.distance pos curr_pos, curr_id) rest
     in
     let heap = Heap.min_of_list with_distance in
     let seen = Set.of_list [ id ] in
@@ -66,6 +66,9 @@ let test_graph =
 
 let%test "Simple MST" =
   let res = minimum_spanning_tree test_graph in
-  Option.iter (Util.print_map string_of_int @@ Util.print_list string_of_int) res;
+  (match res with
+   | Some itinerary ->
+     print_endline @@ Util.print_array (Util.print_list string_of_int) itinerary
+   | None -> assert false);
   true
 ;;

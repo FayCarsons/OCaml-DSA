@@ -24,12 +24,11 @@
   connect_four
   prims
   points
-  conference
   dp
   tree_rewrite
   gcd
   bfs
-  min_char_window)
+  graph_isomorphism)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))
