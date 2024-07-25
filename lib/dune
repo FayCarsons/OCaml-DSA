@@ -28,7 +28,8 @@
   tree_rewrite
   gcd
   bfs
-  graph_isomorphism)
+  graph_isomorphism 
+  rbtree)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))
