@@ -81,3 +81,13 @@ let print_queue elt_printer q =
 let print_stack elt_printer stack =
   "Stack [ " ^ Stack.fold ~f:(fun s elt -> s ^ elt_printer elt) ~init:"" stack ^ " ]\n"
 ;;
+
+let time ~label f =
+  let start = Time_float.now () in
+  let _ = f () in
+  let finished = Time_float.now () in
+  Printf.printf
+    "%s took %s\n%!"
+    label
+    Time_float.(diff finished start |> Span.to_short_string)
+;;

@@ -273,3 +273,21 @@ let cartesian_product list =
   in
   loop [] list
 ;;
+
+(* Taken from leetcode 'Kids with candies' *)
+let kids_with_candies candies extra =
+  let max_candies = List.fold_left (fun acc n -> if n > acc then n else acc) 0 candies in
+  let result = Array.make (List.length candies) false in
+  let _ =
+    List.iteri
+      (fun idx n -> if n + extra >= max_candies then result.(idx) <- true)
+      candies
+  in
+  result
+;;
+
+let%test "Kids with candies - Case one" =
+  let candies = [ 2; 3; 5; 1; 3 ]
+  and extra = 3 in
+  kids_with_candies candies extra = [| true; true; true; false; true |]
+;;
