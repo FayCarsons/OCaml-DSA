@@ -30,7 +30,9 @@
   bfs
   graph_isomorphism
   rbtree
-  rainwater)
+  rainwater
+  fibonacci
+  risk)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

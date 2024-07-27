@@ -291,3 +291,13 @@ let%test "Kids with candies - Case one" =
   and extra = 3 in
   kids_with_candies candies extra = [| true; true; true; false; true |]
 ;;
+
+let increasing_triplet nums =
+  let rec loop first second = function
+    | x :: xs when x <= first -> loop x second xs
+    | x :: xs when x <= second -> loop first x xs
+    | _ :: _ -> true
+    | [] -> false
+  in
+  loop Int.max_int Int.max_int nums
+;;

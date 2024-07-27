@@ -11,6 +11,17 @@ let or_default map key ~default f =
   | None -> Hashtbl.add map ~key ~data:(f default) |> ignore
 ;;
 
+let prefix_scan : f:('acc -> 'a -> 'acc) -> init:'acc -> 'a list -> 'acc list =
+  fun ~f ~init list ->
+  let rec loop acc result = function
+    | x :: xs ->
+      let new_acc = f acc x in
+      loop new_acc (new_acc :: result) xs
+    | [] -> List.rev result
+  in
+  loop init [ init ] list
+;;
+
 type 'a elt_printer = 'a -> string
 
 let print_list elt_printer list =
