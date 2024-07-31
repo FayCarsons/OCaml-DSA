@@ -1,85 +1,189 @@
-type t =
-  | Root of t list
-  | Node of char * t list
-  | Leaf of string
+open Core
 
-let root list = Root list
-let leaf s = Leaf s
+module type TRIE = sig
+  type t
 
-let group_by_prefixes table idx strs =
-  let with_prefixes = List.map (fun s -> s.[idx], s) strs in
-  List.iter (fun (char, _) -> Hashtbl.remove table char) with_prefixes;
-  let rec go acc = function
-    | (char, parent) :: prefixes ->
-      (match Hashtbl.find_opt table char with
-       | Some parents ->
-         Hashtbl.replace table char (parent :: parents);
-         go acc prefixes
-       | None ->
-         Hashtbl.add table char [ parent ];
-         go (char :: acc) prefixes)
-    | [] -> acc
-  in
-  go [] with_prefixes
+  (** Create an empty trie *)
+  val create : unit -> t
+
+  (** Insert a word into a trie *)
+  val insert : t -> string -> t
+
+  (** Test whether a trie contains a word *)
+  val search : t -> string -> bool
+
+  (** Test  whether a given prefix describes a path in a trie *)
+  val starts_with : t -> prefix:string -> bool
+
+  (** Test whether a given string ends in a suffix contained within the tree *)
+  val ends_with : t -> suffix:string -> bool
+end
+
+module Trie : TRIE = struct
+  type t = Root of node option array
+
+  and node =
+    { children : node option array
+    ; mutable terminal : bool
+    }
+
+  let char_to_child_index = Char.to_int
+  let child_array_len = 128
+
+  (** Creates an empty trie *)
+  let create () = Root (Array.create ~len:child_array_len None)
+
+  (** Creates a node with the given character, no children, and without the terminal flag *)
+  let node () = { children = Array.create ~len:child_array_len None; terminal = false }
+
+  let insert (Root self) word =
+    let len = String.length word in
+    let rec insert' char_index current_node =
+      if char_index = len
+      then current_node.terminal <- true
+      else (
+        let current_char = word.[char_index] in
+        let child_index = char_to_child_index current_char in
+        match current_node.children.(child_index) with
+        | Some child -> insert' (succ char_index) child
+        | None ->
+          let new_node = node () in
+          current_node.children.(child_index) <- Some new_node;
+          insert' (succ char_index) new_node)
+    in
+    let start_index = char_to_child_index word.[0] in
+    match self.(start_index) with
+    | Some node ->
+      insert' 1 node;
+      Root self
+    | None ->
+      let new_node = node () in
+      self.(start_index) <- Some new_node;
+      insert' 1 new_node;
+      Root self
+  ;;
+
+  let search (Root self) word =
+    (not (String.is_empty word))
+    &&
+    let len = String.length word in
+    let rec search' char_index nodes =
+      let current_char = word.[char_index] in
+      let child_index = char_to_child_index current_char in
+      match nodes.(child_index) with
+      | Some current_node ->
+        if char_index = pred len
+        then current_node.terminal
+        else search' (succ char_index) current_node.children
+      | None -> false
+    in
+    search' 0 self
+  ;;
+
+  let starts_with (Root self) ~prefix =
+    String.is_empty prefix
+    ||
+    let len = String.length prefix in
+    let rec search' char_index nodes =
+      let current_character = prefix.[char_index] in
+      let child_index = char_to_child_index current_character in
+      match nodes.(child_index) with
+      | Some next_node ->
+        char_index = pred len || search' (succ char_index) next_node.children
+      | None -> false
+    in
+    search' 0 self
+  ;;
+
+  let ends_with (Root self) ~suffix =
+    String.is_empty suffix
+    ||
+    let len = String.length suffix in
+    let rec loop character_index =
+      if character_index = pred len
+      then false
+      else (
+        let current_character = suffix.[character_index] in
+        let child_index = char_to_child_index current_character in
+        match self.(child_index) with
+        | Some child ->
+          let rec search character_index children =
+            character_index = pred len
+            ||
+            let current_character = suffix.[character_index] in
+            let child_index = char_to_child_index current_character in
+            match children.(child_index) with
+            | Some next -> search (succ character_index) next.children
+            | None -> false
+          in
+          search character_index child.children
+        | None -> loop (succ character_index))
+    in
+    loop 0
+  ;;
+end
+
+let%test "Insert and search basic word" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  Trie.search trie "apple" && not (Trie.search trie "app")
 ;;
 
-let build list =
-  let num_xs = List.length list in
-  let table = Hashtbl.create @@ (num_xs * num_xs) in
-  let rec build' idx strs =
-    let pairs = group_by_prefixes table idx strs in
-    List.map
-      (fun current_char ->
-        let parents = Hashtbl.find table current_char in
-        match parents with
-        | [ one ] when idx = pred (String.length one) -> Node (current_char, [ Leaf one ])
-        | many -> Node (current_char, build' (succ idx) many))
-      pairs
-  in
-  root @@ build' 0 list
+let%test "Search non-existent word" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  not (Trie.search trie "apples")
 ;;
 
-let option_to_bool = function
-  | Some _ -> true
-  | _ -> false
+let%test "Starts with prefix" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  Trie.starts_with trie ~prefix:"app" && Trie.starts_with trie ~prefix:"apple"
 ;;
 
-let search trie str =
-  let len = String.length str in
-  let rec go idx = function
-    | Root children -> List.find_opt (go 0) children |> option_to_bool
-    | Node (_, []) -> false
-    | Node (_, [ Leaf last ]) -> idx = pred len && last = str
-    | Node (char, children) ->
-      if char = str.[idx]
-      then List.find_opt (go (succ idx)) children |> option_to_bool
-      else false
-    | Leaf last -> last = str
-  in
-  go 0 trie
+let%test "Does not start with non-existent prefix" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  not (Trie.starts_with trie ~prefix:"b")
 ;;
 
-let search_stream : t -> char Seq.t -> string option =
-  fun root stream ->
-  let open Seq in
-  let rec go current_node : char node -> string option = function
-    | Cons (x, xs) ->
-      (match current_node with
-       | Root children | Node (_, children) ->
-         (match
-            List.find_opt
-              (function
-                | Node (c, _) when c = x -> true
-                | _ -> false)
-              children
-          with
-          | Some node -> go node (xs ())
-          | None -> go current_node (xs ()))
-       | Leaf s -> if Seq.is_empty xs then Some s else None)
-    | Nil ->
-      (match current_node with
-       | Node (_, [ Leaf s ]) -> Some s
-       | _ -> None)
+let%test "Multiple word insertions" =
+  let trie =
+    List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple"; "apartment"; "app" ]
   in
-  go root (stream ())
+  Trie.search trie "apartment"
+  && Trie.search trie "app"
+  && Trie.search trie "apple"
+  && not (Trie.search trie "apart")
+;;
+
+let%test "Starts with after multiple insertions" =
+  let trie =
+    List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple"; "apartment"; "app" ]
+  in
+  Trie.starts_with trie ~prefix:"apar"
+  && Trie.starts_with trie ~prefix:"app"
+  && Trie.starts_with trie ~prefix:"appl"
+  && not (Trie.starts_with trie ~prefix:"b")
+;;
+
+let%test "Empty string behavior" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  (not (Trie.search trie "")) && Trie.starts_with trie ~prefix:""
+;;
+
+let%test "Case sensitivity" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  (not (Trie.search trie "Apple")) && not (Trie.starts_with trie ~prefix:"App")
+;;
+
+let%test "Word with spaces" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "hello world" ] in
+  Trie.search trie "hello world" && Trie.starts_with trie ~prefix:"hello "
+;;
+
+let%test "Long prefix" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "apple" ] in
+  not (Trie.starts_with trie ~prefix:"apples are red")
+;;
+
+let%test "Inserting multiple words preserves previous insertions" =
+  let trie = List.fold_left ~f:Trie.insert ~init:(Trie.create ()) [ "cat"; "car" ] in
+  Trie.search trie "cat" && Trie.search trie "car"
 ;;

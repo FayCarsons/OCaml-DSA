@@ -117,6 +117,27 @@ let test_tree =
     }
 ;;
 
+let leaf_similar t1 t2 =
+  let rec leaf_sequence acc = function
+    | Node { left = Empty; value; right = Empty } -> value :: acc
+    | Node { left; right; _ } -> leaf_sequence (leaf_sequence acc left) right
+    | Empty -> acc
+  in
+  let ls1 = leaf_sequence [] t1
+  and ls2 = leaf_sequence [] t2 in
+  ls1 = ls2
+;;
+
+let count_good t =
+  let rec count' max' = function
+    | Node { left; value; right } ->
+      let current_valid = Bool.to_int @@ (value < max') in
+      current_valid + count' (max max' value) left + count' (max max' value) right
+    | Empty -> 0
+  in
+  count' t
+;;
+
 let%test "Valid" = is_valid test_tree
 let%test "Balanced" = is_balanced test_tree
 let%test "Height" = height test_tree = 3

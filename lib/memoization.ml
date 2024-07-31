@@ -4,16 +4,13 @@ module Naive = struct
   let get self key = Hashtbl.find_opt self key
   let set self key value = Hashtbl.add self key value
 
-  let memoize : ('a -> 'b) -> ?size:int -> 'a -> 'b =
-    fun f ?(size = 512) ->
-    let cache = Hashtbl.create size in
-    fun arg ->
-      match Hashtbl.find_opt cache arg with
-      | Some value -> value
-      | None ->
-        let new_value = f arg in
-        Hashtbl.add cache arg new_value;
-        new_value
+  let rec fib cache n =
+    match Hashtbl.find_opt cache n with
+    | Some value -> value
+    | None ->
+      let new_value = fib cache (n - 1) + fib cache (n - 2) in
+      Hashtbl.add cache n new_value;
+      new_value
   ;;
 end
 
@@ -42,21 +39,35 @@ module Better = struct
     self.size <- succ self.size
   ;;
 
-  let memoize : int -> ('a -> 'b) -> 'a -> 'b =
-    fun capacity f ->
-    let self = create capacity in
-    fun arg ->
-      match get self arg with
-      | Some value -> value
-      | None ->
-        let new_value = f arg in
-        set self arg new_value;
-        new_value
+  let rec fib cache n =
+    match get cache n with
+    | Some value -> value
+    | None ->
+      let new_value = fib cache (n - 1) + fib cache (n - 2) in
+      set cache n new_value;
+      new_value
+  ;;
+
+  let%test "Queue-based cache fibonacci" =
+    (* memoized *)
+    let fib =
+      let cache = create 128 in
+      fib cache
+    in
+    let first = fib 4 in
+    let second = fib 8 in
+    let third = fib 16 in
+    fib 4 = first
+    && first = 3
+    && fib 8 = second
+    && second = 21
+    && third = fib 16
+    && third = 987
   ;;
 end
 
 module Best = struct
-  include Lru
+  open Lru
 
   let rec fib lru n =
     match get lru n with
@@ -67,39 +78,20 @@ module Best = struct
       result
   ;;
 
-  (* Wraps 'f' in a memoization function that stores 'threshold' most recently used values *)
-  let memoize f threshold =
-    let lru = create threshold in
-    fun arg ->
-      match get lru arg with
-      | Some value -> value
-      | None ->
-        let new_value = f arg in
-        set lru arg new_value;
-        new_value
-  ;;
-
   let%test "LRU fibonacci" =
-    let rec fib_raw n = if n < 2 then n else fib_raw (n - 1) + fib_raw (n - 2) in
     (* memoized *)
-    let num_calls = ref 0 in
     let fib =
-      memoize
-        (fun n ->
-          num_calls := succ !num_calls;
-          fib_raw n)
-        32
+      let lru = Lru.create 128 in
+      fib lru
     in
     let first = fib 4 in
     let second = fib 8 in
     let third = fib 16 in
-    assert (!num_calls = 3);
     fib 4 = first
     && first = 3
     && fib 8 = second
     && second = 21
     && third = fib 16
     && third = 987
-    && !num_calls = 3
   ;;
 end
