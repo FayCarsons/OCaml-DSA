@@ -33,7 +33,8 @@
   rainwater
   fibonacci
   risk
-  deque)
+  deque
+  union_find)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))

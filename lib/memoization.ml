@@ -40,12 +40,15 @@ module Better = struct
   ;;
 
   let rec fib cache n =
-    match get cache n with
-    | Some value -> value
-    | None ->
-      let new_value = fib cache (n - 1) + fib cache (n - 2) in
-      set cache n new_value;
-      new_value
+    if n < 2
+    then n
+    else (
+      match get cache n with
+      | Some value -> value
+      | None ->
+        let new_value = fib cache (n - 1) + fib cache (n - 2) in
+        set cache n new_value;
+        new_value)
   ;;
 
   let%test "Queue-based cache fibonacci" =
@@ -70,12 +73,15 @@ module Best = struct
   open Lru
 
   let rec fib lru n =
-    match get lru n with
-    | Some value -> value
-    | None ->
-      let result = if n < 2 then n else fib lru (n - 1) + fib lru (n - 2) in
-      set lru n result;
-      result
+    if n < 2
+    then n
+    else (
+      match get lru n with
+      | Some value -> value
+      | None ->
+        let result = if n < 2 then n else fib lru (n - 1) + fib lru (n - 2) in
+        set lru n result;
+        result)
   ;;
 
   let%test "LRU fibonacci" =
