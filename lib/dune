@@ -34,7 +34,8 @@
   fibonacci
   risk
   deque
-  union_find)
+  union_find
+  coin_change)
  (inline_tests)
  (preprocess
   (pps ppx_inline_test))
